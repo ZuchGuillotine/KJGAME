@@ -2,7 +2,7 @@
     * @description      : 
     * @author           : 
     * @group            : 
-    * @created          : 07/03/2025 - 21:31:54
+    * @created          : 07/03/2025 - 22:19:49
     * 
     * MODIFICATION LOG
     * - Version         : 1.0.0
@@ -11,37 +11,72 @@
     * - Modification    : 
 **/
 import * as THREE from 'three';
+import { Spaceship } from './spaceship.js';
+import { SmallCraft } from './smallcraft.js';
 
 export class Controls {
-    constructor(camera, spaceship) {
+    constructor(camera, largeShip, physics) {
         this.camera = camera;
-        this.spaceship = spaceship;
-        this.keys = {};
-        
-        // Set up event listeners
-        window.addEventListener('keydown', (e) => this.keys[e.key] = true);
-        window.addEventListener('keyup', (e) => this.keys[e.key] = false);
+        this.largeShip = largeShip;
+        this.activeCraft = largeShip;
+        this.physics = physics;
+        this.camera.position.set(0, 60, 20); // Above large ship
+        this.camera.lookAt(this.largeShip.mesh.position);
+
+        this.movement = { forward: 0, pitch: 0, yaw: 0, roll: 0 };
+
+        document.addEventListener('keydown', this.onKeyDown.bind(this));
+        document.addEventListener('keyup', this.onKeyUp.bind(this));
+    }
+
+    onKeyDown(event) {
+        switch (event.key) {
+            case 'w': this.movement.forward = 1; break;
+            case 's': this.movement.forward = -1; break;
+            case 'a': this.movement.yaw = 0.02; break;
+            case 'd': this.movement.yaw = -0.02; break;
+            case 'q': this.movement.roll = 0.02; break;
+            case 'e': this.movement.roll = -0.02; break;
+            case 'r': this.movement.pitch = 0.02; break;
+            case 'f': this.movement.pitch = -0.02; break;
+            case '1': if (this.activeCraft instanceof SmallCraft) this.activeCraft.setLaserColor('red'); break;
+            case '2': if (this.activeCraft instanceof SmallCraft) this.activeCraft.setLaserColor('blue'); break;
+            case '3': if (this.activeCraft instanceof SmallCraft) this.activeCraft.setLaserColor('green'); break;
+            case ' ': // Spawn small craft
+                if (this.activeCraft instanceof Spaceship) {
+                    this.activeCraft = this.largeShip.spawnSmallCraft();
+                    this.physics.addObject(this.activeCraft);
+                    this.camera.position.set(0, 5, 5);
+                }
+                break;
+            case 'Shift': // Fire laser
+                if (this.activeCraft instanceof SmallCraft) {
+                    this.activeCraft.fireLaser();
+                }
+                break;
+        }
+    }
+
+    onKeyUp(event) {
+        switch (event.key) {
+            case 'w': case 's': this.movement.forward = 0; break;
+            case 'a': case 'd': this.movement.yaw = 0; break;
+            case 'q': case 'e': this.movement.roll = 0; break;
+            case 'r': case 'f': this.movement.pitch = 0; break;
+        }
     }
 
     update() {
-        // Basic movement controls
-        const moveSpeed = 0.1;
-        const rotateSpeed = 0.02;
-
-        if (this.keys['ArrowUp']) {
-            this.spaceship.setVelocity(0, moveSpeed, 0);
-        } else if (this.keys['ArrowDown']) {
-            this.spaceship.setVelocity(0, -moveSpeed, 0);
-        } else {
-            this.spaceship.setVelocity(0, 0, 0);
+        if (this.activeCraft instanceof SmallCraft) {
+            this.activeCraft.accelerate(this.movement.forward);
+            this.activeCraft.pitch(this.movement.pitch);
+            this.activeCraft.yaw(this.movement.yaw);
+            this.activeCraft.roll(this.movement.roll);
         }
 
-        if (this.keys['ArrowLeft']) {
-            this.spaceship.setRotation(0, 0, rotateSpeed);
-        } else if (this.keys['ArrowRight']) {
-            this.spaceship.setRotation(0, 0, -rotateSpeed);
-        } else {
-            this.spaceship.setRotation(0, 0, 0);
-        }
+        this.camera.position.copy(this.activeCraft.mesh.position);
+        this.camera.position.y += 5;
+        this.camera.position.z += 10;
+        this.camera.lookAt(this.activeCraft.mesh.position);
     }
 }
